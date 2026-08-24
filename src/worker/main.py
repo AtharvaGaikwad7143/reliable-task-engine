@@ -14,8 +14,9 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    # This prevents Celery from accepting messages too fast before it finishes them
-    worker_prefetch_multiplier=1 
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,                 # Do not ACK until the task finishes
+    task_reject_on_worker_lost=True      # Re-queue if the worker process is killed abruptly
 )
 
 # Import tasks so Celery registers them
