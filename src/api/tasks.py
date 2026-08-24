@@ -20,7 +20,7 @@ async def submit_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(new_task)
     
-    # TODO in Sprint 3: Dispatch to Redis/Celery goes here
+    process_task.delay(str(new_task.id))
 
     return new_task
 
@@ -34,14 +34,14 @@ async def get_task_status(task_id: UUID, db: AsyncSession = Depends(get_db)):
         
     return task
 
-@router.post("/", response_model=TaskResponse, status_code=status.HTTP_202_ACCEPTED)
-async def submit_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
-    new_task = Task(name=task_in.name, payload=task_in.payload)
-    db.add(new_task)
-    await db.commit()
-    await db.refresh(new_task)
+# @router.post("/", response_model=TaskResponse, status_code=status.HTTP_202_ACCEPTED)
+# async def submit_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
+#     new_task = Task(name=task_in.name, payload=task_in.payload)
+#     db.add(new_task)
+#     await db.commit()
+#     await db.refresh(new_task)
     
-    # NEW: Dispatch to Celery/Redis
-    process_task.delay(str(new_task.id))
+#     # NEW: Dispatch to Celery/Redis
+#     process_task.delay(str(new_task.id))
 
-    return new_task
+#     return new_task
