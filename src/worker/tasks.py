@@ -40,18 +40,18 @@ def _is_cancellation_requested(task_id: UUID) -> bool:
     return sync_redis.get(f"cancel_task:{str(task_id)}") == "true"
 
 
-async def _update_task_status(
-    task_id: UUID,
-    status: TaskState
-):
-    async with WorkerSessionLocal() as db:
-        result = await db.execute(
-            select(Task).where(Task.id == task_id)
-        )
-        task = result.scalars().first()
+async def _update_task_status(task_id: UUID, status: TaskState):
 
+    async with WorkerSessionLocal() as db:
+        result = await db.execute(select(Task).where(Task.id == task_id))
+        task = result.scalars().first()
         if task:
-            task.status = status
+            if task.cancel_requested and status != TaskState.CANCELLED:
+                print(f"Late cancellation detected for {task_id}. Forcing CANCELLED state.")
+                task.status = TaskState.CANCELLED
+            else:
+                task.status = status
+                
             await db.commit()
 
 
