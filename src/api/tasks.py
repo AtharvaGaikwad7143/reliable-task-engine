@@ -3,9 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from uuid import UUID
 from src.core.database import get_db
-from src.db.models import Task
+from src.db.models import Task, TaskState
 from src.schemas.task import TaskCreate, TaskResponse
 from src.worker.tasks import process_task
+from src.core.redis import redis_client
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["Tasks"])
 
@@ -34,14 +35,21 @@ async def get_task_status(task_id: UUID, db: AsyncSession = Depends(get_db)):
         
     return task
 
-# @router.post("/", response_model=TaskResponse, status_code=status.HTTP_202_ACCEPTED)
-# async def submit_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
-#     new_task = Task(name=task_in.name, payload=task_in.payload)
-#     db.add(new_task)
-#     await db.commit()
-#     await db.refresh(new_task)
-    
-#     # NEW: Dispatch to Celery/Redis
-#     process_task.delay(str(new_task.id))
+@router.post("/{task_id}/cancel", response_model=TaskResponse)
+async def cancel_task(task_id : UUID, db : AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalars().first()
 
-#     return new_task
+    if not task: 
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="Task not found")
+    
+    if task.status in {TaskState.COMPLETED, TaskState.FAILED}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, 
+                            detail="Task cannot be cancelled")
+
+    task.cancel_requested = True
+    await db.commit()
+    await redis_client.set(f"cancel_task:{str(task_id)}", "true", ex = 86400)
+    await db.refresh(task)
+    return task

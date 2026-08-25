@@ -1,9 +1,10 @@
 import uuid
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, Enum
+from sqlalchemy import Column, String, DateTime, Enum, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import declarative_base
+
 
 Base = declarative_base()
 
@@ -14,6 +15,7 @@ class TaskState(str, enum.Enum):
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
     RETRYING = "RETRYING"
+    CANCELLED = "CANCELLED"
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -26,3 +28,4 @@ class Task(Base):
     error = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True),default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True),default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    cancel_requested = Column(Boolean, default=False, nullable=False)
