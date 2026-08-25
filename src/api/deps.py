@@ -11,6 +11,8 @@ async def rate_limiter(request : Request):
     Limit: 5 requests per 60 seconds per IP.
     """
     client_ip = request.client.host
+    # have to use below line for testing
+    # client_ip = request.client.host if request.client else "testclient"
     current_minute = int(time.time() // 60)
 
     key = f"rate_limit:{client_ip}:{current_minute}"
