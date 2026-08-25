@@ -7,10 +7,11 @@ from src.db.models import Task, TaskState
 from src.schemas.task import TaskCreate, TaskResponse
 from src.worker.tasks import process_task
 from src.core.redis import redis_client
+from src.api.deps import rate_limiter
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["Tasks"])
 
-@router.post("/", response_model=TaskResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post("/", response_model=TaskResponse, status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(rate_limiter)])
 async def submit_task(task_in: TaskCreate, db: AsyncSession = Depends(get_db)):
     # 1. Create the database record in PENDING state
     new_task = Task(
