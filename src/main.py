@@ -1,17 +1,22 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from src.api import tasks
-# from src.core.database import engine
-# from src.db.models import Base
-# from contextlib import asynccontextmanager
+import time
+import logging
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Create tables on startup (For Dev Only. We will use Alembic for Prod.)
-#     async with engine.begin() as conn:
-#         await conn.run_sync(Base.metadata.create_all)
-#     yield
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Reliable Task Engine")
+
+@app.middleware("http")
+async def add_process_time_header(request:Request, call_next):
+    start_time = time.perf_counter()
+    response = await call_next(request)
+    process_time = time.perf_counter() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    logger.info(f"Method: {request.method} Path: {request.url.path} Status: {response.status_code} Latency: {process_time:.4f}s")
+    
+    return response
 
 app.include_router(tasks.router)
 

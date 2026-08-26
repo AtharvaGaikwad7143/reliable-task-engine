@@ -9,6 +9,7 @@ from sqlalchemy.pool import NullPool
 from src.core.config import settings
 from src.db.models import Task, TaskState
 from src.worker.main import celery_app
+from celery.utils.log import get_task_logger
 
 
 worker_engine = create_async_engine(
@@ -23,7 +24,7 @@ WorkerSessionLocal = async_sessionmaker(
 )
 
 sync_redis = redis.from_url(settings.REDIS_URL, decode_responses = True)
-
+logger = get_task_logger(__name__)
 
 async def _get_task_status(task_id: UUID) -> TaskState:
     async with WorkerSessionLocal() as db:
@@ -47,7 +48,7 @@ async def _update_task_status(task_id: UUID, status: TaskState):
         task = result.scalars().first()
         if task:
             if task.cancel_requested and status != TaskState.CANCELLED:
-                print(f"Late cancellation detected for {task_id}. Forcing CANCELLED state.")
+                logger.warning(f"Late cancellation detected for {task_id}. Forcing CANCELLED state.")
                 task.status = TaskState.CANCELLED
             else:
                 task.status = status
@@ -73,7 +74,7 @@ def process_task(self, task_id_str: str):
     )
 
     if current_status == TaskState.COMPLETED:
-        print(
+        logger.info(
             f"Task {task_id} already completed. "
             "Skipping (Idempotency)."
         )
@@ -94,7 +95,7 @@ def process_task(self, task_id_str: str):
             )
         )
 
-        print(
+        logger.info(
             f"Executing task {task_id}... "
             f"(Attempt {self.request.retries + 1})"
         )
@@ -113,7 +114,7 @@ def process_task(self, task_id_str: str):
                     )
                 )
 
-                print(
+                logger.info(
                     f"Task {task_id} cancelled."
                 )
 
@@ -122,14 +123,14 @@ def process_task(self, task_id_str: str):
             # Simulate one chunk of work
             time.sleep(1)
 
-            print(
+            logger.info(
                 f"Task {task_id} "
                 f"processing chunk {i + 1}/10..."
             )
 
             # Simulate transient failure
             if random.random() < 0.30:
-                print(
+                logger.warning(
                     f"Simulated transient failure "
                     f"for {task_id}!"
                 )
@@ -146,7 +147,7 @@ def process_task(self, task_id_str: str):
             )
         )
 
-        print(
+        logger.info(
             f"Task {task_id} complete."
         )
 
@@ -164,7 +165,7 @@ def process_task(self, task_id_str: str):
                 )
             )
 
-            print(
+            logger.error(
                 f"Task {task_id} permanently failed: {e}"
             )
 

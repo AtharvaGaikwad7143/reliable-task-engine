@@ -2,3 +2,8 @@
 docs
 __pycache__
 .vscode/
+
+
+migrations/README
+migrations/script.py.mako
+migrations/versions/
